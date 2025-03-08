@@ -93,60 +93,66 @@ const deleteLogInfo = async (req, res) => {
  */
 
 const signin = async (req, res) => {
-    try {
-      const { username, password } = req.body;
-  
-      const existingUser = await Admin.findOne({
-        username,
-      });
-      if (!existingUser) {
-        return res.status(404).json({
-          message: "Invalid credentials",
-        });
-      }
-  
-      const isPasswordCorrect = await bcrypt.compare(
-        password,
-        existingUser.password
-      );
-  
-      if (!isPasswordCorrect) {
-        return res.status(400).json({
-          message: "Invalid credentials",
-        });
-      }
-      const payload = {
-        id: existingUser._id,
-        username: existingUser.username,
-      };
-  
-      const accessToken = jwt.sign(payload, process.env.SECRET, {
-        expiresIn: "6h",
-      });
-  
-      const newAdminToken = new AdminToken({
-        user: existingUser._id,
-        accessToken,
-      });
-  
-      await newAdminToken.save();
-  
-      res.status(200).json({
-        accessToken,
-        accessTokenUpdatedAt: new Date().toLocaleString(),
-        user: {
-          _id: existingUser._id,
-          username: existingUser.username,
-        },
-      });
-    } catch (err) {
-      res.status(500).json({
-        message: "Something went wrong",
+  try {
+    const { username, password } = req.body;
+
+    const existingUser = await Admin.findOne({
+      where: { username },
+      attributes: ['id', 'username', 'password']
+    });
+    
+    
+
+    if (!existingUser) {
+      return res.status(404).json({
+        message: "Invalid credentials",
       });
     }
-  };
 
-  /**
+    const isPasswordCorrect = await bcrypt.compare(
+      password,
+      existingUser.password
+    );
+    console.log(password, existingUser.password);
+    
+
+    if (!isPasswordCorrect) {
+      return res.status(400).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    const payload = {
+      id: existingUser.id,
+      username: existingUser.username,
+    };
+
+    const accessToken = jwt.sign(payload, process.env.SECRET, {
+      expiresIn: "6h",
+    });
+
+    await AdminToken.create({
+      userId: existingUser.id,
+      accessToken: accessToken
+    });
+
+    res.status(200).json({
+      accessToken,
+      accessTokenUpdatedAt: new Date().toLocaleString(),
+      user: {
+        id: existingUser.id,
+        username: existingUser.username,
+      },
+    });
+  } catch (err) {
+    console.error('Signin error:', err);
+    res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+};
+
+/**
  * @route GET /admin/preferences
  */
 const retrieveServicePreference = async (req, res) => {

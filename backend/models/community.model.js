@@ -1,10 +1,5 @@
 const Sequelize = require('sequelize');
 const sequelize = require('../utils/database');
-const User = require('./user.model');
-const Rule = require('./rule.model');
-const Post = require('./post.model');
-const { FOREIGNKEYS } = require('sequelize/lib/query-types');
-
 
 const Community = sequelize.define('Community', {
     name: {
@@ -25,15 +20,33 @@ const Community = sequelize.define('Community', {
     banner: {
       type: Sequelize.STRING
     },
-
-  }, {
+}, {
     timestamps: true
+});
+
+const setupAssociations = (models) => {
+  const { User, Post } = models;
+  
+  Community.belongsToMany(User, { 
+    as: "members", 
+    through: "CommunityMembers", 
+    foreignKey: "communityId",
+    otherKey: "userId"
   });
-  
-  // Define associations
 
-Community.hasmany
-  // Community model
+  Community.belongsToMany(User, { 
+    as: "bannedMembers", 
+    through: "BannedCommunityMembers", 
+    foreignKey: "communityId",
+    otherKey: "userId"
+  });
 
-  
-  module.exports = Community;
+  Community.hasMany(Post, {
+    foreignKey: 'communityId'
+  });
+};
+
+module.exports = {
+  Community,
+  setupAssociations
+};

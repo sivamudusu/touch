@@ -7,19 +7,13 @@ const User = require('./user.model');
 const Community = require('./community.model');
 const Like = require('./like.model');
 
-
-
 const Post = sequelize.define('Post', {
   content: {
     type: Sequelize.STRING,
-    allowNull: true,
-    validate: {
-      len: [0, 255]
-    }
+    allowNull: false,
   },
   fileUrl: {
     type: Sequelize.STRING,
-    allowNull: true
   },
   fileType: {
     type: Sequelize.STRING,
@@ -41,29 +35,46 @@ const Post = sequelize.define('Post', {
       key: 'id',
     },
   }
-  
 }, {
   timestamps: true
 });
 
+const setupAssociations = (models) => {
+  const { User, Community, Comment, Like } = models;
+  
+  Post.belongsTo(User, {
+    foreignKey: 'userId',
+    as: 'author'
+  });
 
-Post.hasMany(Comment, { foreignKey: 'postId', onDelete: 'CASCADE' });
-Post.belongsTo(Community, { foreignKey: 'communityId' });
-Post.hasMany(Like, { foreignKey: 'postId', onDelete: 'CASCADE' });
+  Post.belongsTo(Community, {
+    foreignKey: 'communityId'
+  });
 
-Post.beforeDestroy(async (post, options) => {
-  try {
-    if (post.fileUrl) {
-      const filename = path.basename(post.fileUrl);
-      await fs.unlink(path.join(__dirname, '../assets/userFiles', filename));
+  Post.hasMany(Comment, { 
+    foreignKey: 'postId', 
+    onDelete: 'CASCADE' 
+  });
+
+  Post.hasMany(Like, { 
+    foreignKey: 'postId', 
+    onDelete: 'CASCADE' 
+  });
+
+  // File deletion hooks
+  Post.beforeDestroy(async (post, options) => {
+    try {
+      if (post.fileUrl) {
+        const filename = path.basename(post.fileUrl);
+        await fs.unlink(path.join(__dirname, '../assets/userFiles', filename));
+      }
+    } catch (error) {
+      throw new Error('Error deleting file: ' + error.message);
     }
+  });
+};
 
-    await Comment.destroy({ where: { postId: post.id } });
-    await Report.destroy({ where: { postId: post.id } });
-    await User.update({ savedPosts: sequelize.fn('array_remove', sequelize.col('savedPosts'), post.id) }, { where: { savedPosts: post.id } });
-  } catch (error) {
-    throw new Error('Error deleting file: ' + error.message);
-  }
-});
-
-module.exports = Post;
+module.exports = {
+  Post,
+  setupAssociations
+};

@@ -1,5 +1,6 @@
 import * as api from "../api/postAPI";
 import * as types from "../constants/postConstants";
+import axios from "axios";
 
 export const createPostAction = (formData) => async (dispatch) => {
   // console.log(formData);
@@ -526,6 +527,25 @@ export const getPublicPostsAction = (publicUserId) => async (dispatch) => {
       meta: {
         requiresAuth: true,
       },
+    });
+  }
+};
+
+export const getCommunityPosts = (communityName) => async (dispatch) => {
+  try {
+    dispatch({ type: 'FETCH_POSTS_REQUEST' });
+    
+    // Make sure the URL matches your backend route
+    const response = await axios.get(`/api/posts/community/${communityName}`);
+    
+    dispatch({
+      type: 'FETCH_POSTS_SUCCESS',
+      payload: response.data
+    });
+  } catch (error) {
+    dispatch({
+      type: 'FETCH_POSTS_ERROR',
+      payload: error.message
     });
   }
 };

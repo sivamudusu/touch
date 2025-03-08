@@ -1,15 +1,21 @@
-const Community = require("../models/community.model");
-const Sequelize = require('sequelize')
+const { Community, User, Report } = require('../models');
+const Sequelize = require('sequelize');
 const Rule = require("../models/rule.model");
-const User = require("../models/user.model");
-const Report = require("../models/report.model");
 const dayjs = require("dayjs");
 const relativeTime = require("dayjs/plugin/relativeTime");
 dayjs.extend(relativeTime);
 
 const getCommunities = async (req, res) => {
   try {
-    const communities = await Community.findAll();
+    const communities = await Community.findAll({
+      // include: [{
+      //   model: User,
+      //   as: 'members',
+      //   through: { attributes: [] }
+      // }]
+    });
+    console.log(communities);
+    
     res.status(200).json(communities);
   } catch (error) {
     res.status(404).json({
@@ -21,8 +27,19 @@ const getCommunities = async (req, res) => {
 const getCommunity = async (req, res) => {
   try {
     const community = await Community.findOne({
-      name: req.params.name,
-    })
+      where: { name: req.params.name },
+      include: [{
+        model: User,
+        as: 'members',
+        through: { attributes: [] }
+      }]
+    });
+
+    if (!community) {
+      return res.status(404).json({
+        message: "Community not found"
+      });
+    }
 
     res.status(200).json(community);
   } catch (error) {
@@ -34,20 +51,44 @@ const getCommunity = async (req, res) => {
 
 const createCommunity = async (req, res) => {
   try {
-    const communities = req.body;
-    console.log(communities);
-    const savedCommunities = await Community.create(communities);
-    res.status(201).json(savedCommunities);
+    const communityData = req.params.name;
+    console.log(req.params);
+    
+    
+    // Check if community already exists
+    const existing = await Community.findOne({
+      where: { name: communityData}
+    });
+
+    if (existing) {
+      return res.status(409).json({
+        message: "Community with this name already exists"
+      });
+    }
+
+    const savedCommunity = new Community({
+      name : communityData,
+      description:"hello",
+      createdBy: req.userId
+    });
+
+    // Add creator as first member
+    // await savedCommunity.addMember(req.userId);
+    await savedCommunity.save()
+
+    res.status(201).json(savedCommunity);
   } catch (error) {
+    console.error(error);
     res.status(409).json({
       message: "Error creating community",
+      error: error.message
     });
   }
 };
 
 const addRules = async (req, res) => {
-  const rules = req.body;
   try {
+    const rules = req.body;
     const savedRules = await Rule.create(rules);
     res.status(201).json(savedRules);
   } catch (error) {
@@ -92,22 +133,20 @@ const addRulesToCommunity = async (req, res) => {
 const getMemberCommunities = async (req, res) => {
   try {
     const communities = await Community.findAll({
-        include: [{
-          model: User,
-          as: 'members',
-          through: {
-          attributes: [] // Exclude join table attributes
-        },
-          where: { id: req.userId}
-        }],
-        attributes: ['id', 'name', 'banner', 'description'], // Select specific attributes
-        raw: true // Return plain JSON objects
-      });
+      include: [{
+        model: User,
+        as: 'members',
+        through: { attributes: [] },
+        where: { id: req.userId }
+      }],
+      attributes: ['id', 'name', 'banner', 'description']
+    });
 
     res.status(200).json(communities);
   } catch (error) {
     res.status(500).json({
       message: "Error getting communities",
+      error: error.message
     });
   }
 };
@@ -120,17 +159,32 @@ const getMemberCommunities = async (req, res) => {
  * @route GET /communities/not-member
  */
 const getNotMemberCommunities = async (req, res) => {
-  console.log("triggered in not member communities");
   try {
-    const userId = req.userId;
-    const communities = await Community.findAll();
-
-    console.log(communities);
+    // Find communities where user is not a member using a subquery
+    const communities = await Community.findAll({
+      // include: [{
+      //   model: User,
+      //   as: 'members',
+      //   through: { attributes: [] },
+      //   required: false
+      // }],
+      // where: {
+      //   id: {
+      //     [Sequelize.Op.notIn]: Sequelize.literal(
+      //       `(SELECT "communityId" FROM "CommunityMembers" WHERE "userId" = ${req.userId})`
+      //     )
+      //   }
+      // },
+      // limit: 10,
+      // order: [[Sequelize.literal('random()')]]
+    });
+    
 
     res.status(200).json(communities);
   } catch (error) {
     res.status(500).json({
       message: "Error getting communities",
+      error: error.message
     });
   }
 };
@@ -141,24 +195,44 @@ const getNotMemberCommunities = async (req, res) => {
 const joinCommunity = async (req, res) => {
   try {
     const community = await Community.findOne({
-        where: { name: req.params.name }
+      where: { name: req.params.name },
+      include: [{
+        model: User,
+        as: 'members',
+        through: { attributes: [] }
+      }]
     });
-  
-    if(community){
-        await community.addMember(req.userId);
 
-        
+    if (!community) {
+      return res.status(404).json({
+        message: "Community not found"
+      });
     }
-    const updatedCommunity  = await community.finndByPk(community.id,{
-        include : [
-            {model : User,as : "Member"}
-        ]
-    })
+
+    // Check if already a member
+    const isMember = await community.hasMembers(req.userId);
+    if (isMember) {
+      return res.status(400).json({
+        message: "Already a member of this community"
+      });
+    }
+
+    await community.addMembers(req.userId);
+
+    const updatedCommunity = await Community.findByPk(community.id, {
+      include: [{
+        model: User,
+        as: 'members',
+        through: { attributes: [] }
+      }]
+    });
 
     res.status(200).json(updatedCommunity);
   } catch (error) {
+    console.error('Error joining community:', error);
     res.status(500).json({
       message: "Error joining community",
+      error: error.message
     });
   }
 };
@@ -168,22 +242,31 @@ const joinCommunity = async (req, res) => {
  */
 const leaveCommunity = async (req, res) => {
   try {
-    const { name } = req.params;
     const community = await Community.findOne({
-        where: { name: req.params.name }
+      where: { name: req.params.name }
     });
 
-    if(community){
-        await community.removeMember(req.userId);
+    if (!community) {
+      return res.status(404).json({
+        message: "Community not found"
+      });
     }
+
+    await community.removeMember(req.userId);
+
     const updatedCommunity = await Community.findByPk(community.id, {
-        include: [{ model: User, as: 'members' }]
+      include: [{
+        model: User,
+        as: 'members',
+        through: { attributes: [] }
+      }]
     });
 
     res.status(200).json(updatedCommunity);
   } catch (error) {
     res.status(500).json({
       message: "Error leaving community",
+      error: error.message
     });
   }
 };
@@ -195,29 +278,24 @@ const leaveCommunity = async (req, res) => {
  */
 const banUser = async (req, res) => {
   try {
-    const { id, name } = req.params;
+    const { id: userId } = req.params;
+    const community = await Community.findOne({
+      where: { name: req.params.name }
+    });
 
-    const community = await Community.findOneAndUpdate(
-      {
-        name,
-      },
-      {
-        $pull: {
-          members: id,
-        },
-        $push: {
-          bannedUsers: id,
-        },
-      },
-      {
-        new: true,
-      }
-    );
+    if (!community) {
+      return res.status(404).json({ message: "Community not found" });
+    }
 
-    res.status(200).json(community);
+    // Remove from members and add to banned
+    await community.removeMember(userId);
+    await community.addBannedUser(userId);
+
+    res.status(200).json({ message: "User banned successfully" });
   } catch (error) {
     res.status(500).json({
-      message: "Error banning user from community",
+      message: "Error banning user",
+      error: error.message
     });
   }
 };
@@ -229,26 +307,22 @@ const banUser = async (req, res) => {
  */
 const unbanUser = async (req, res) => {
   try {
-    const { id, name } = req.params;
+    const { id: userId } = req.params;
+    const community = await Community.findOne({
+      where: { name: req.params.name }
+    });
 
-    const community = await Community.findOneAndUpdate(
-      {
-        name,
-      },
-      {
-        $pull: {
-          bannedUsers: id,
-        },
-      },
-      {
-        new: true,
-      }
-    );
+    if (!community) {
+      return res.status(404).json({ message: "Community not found" });
+    }
 
-    res.status(200).json(community);
+    await community.removeBannedUser(userId);
+
+    res.status(200).json({ message: "User unbanned successfully" });
   } catch (error) {
     res.status(500).json({
-      message: "Error unbanning user from community",
+      message: "Error unbanning user",
+      error: error.message
     });
   }
 };

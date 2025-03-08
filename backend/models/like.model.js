@@ -24,4 +24,19 @@ const Like = sequelize.define('Like', {
   timestamps: true, // Automatically include createdAt and updatedAt timestamps
 });
 
-module.exports = Like;
+const setupAssociations = (models) => {
+  const { User, Post } = models;
+  
+  Like.belongsTo(User, {
+    foreignKey: 'userId'
+  });
+  
+  Like.belongsTo(Post, {
+    foreignKey: 'postId'
+  });
+};
+
+module.exports = {
+  Like,
+  setupAssociations
+};

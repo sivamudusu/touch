@@ -16,7 +16,7 @@ const Post = ({ post }) => {
   const location = useLocation();
   const userData = useSelector((state) => state.auth?.userData);
 
-  const { content, fileUrl, fileType, User,userId, Community, createdAt, comments } = post;
+  const { content, fileUrl, fileType, author,userId, Community, createdAt, comments,id } = post;
 
 
   const [showModal, setShowModal] = useState(false);
@@ -30,21 +30,21 @@ const Post = ({ post }) => {
         <div className="flex items-center gap-2">
           <img
             className="rounded-full overflow-hidden w-12 h-12 object-cover"
-            src={User.avatar}
+            src={author.avatar}
             alt="user avatar"
             loading="lazy"
           />
           <div className="flex flex-col">
             {userData.id === userId ? (
               <Link to="/profile" className="font-semibold text-lg capitalize">
-                {User.name}
+                {author.name}
               </Link>
             ) : (
               <Link
                 to={`/user/${userId}`}
                 className="font-semibold text-lg capitalize"
               >
-                {User.name}
+                {author.name}
               </Link>
             )}
             <Link
@@ -73,7 +73,7 @@ const Post = ({ post }) => {
             <PhotoProvider
               overlayRender={() => (
                 <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-10 text-white px-3 py-2">
-                  <p className="text-xs">{User.name}</p>
+                  <p className="text-xs">{author.name}</p>
                   <p className="text-xs">{Community.name}</p>
                   <p className="text-xs">{createdAt}</p>
                 </div>
@@ -110,7 +110,7 @@ const Post = ({ post }) => {
           <button
             className="flex items-center text-lg gap-1"
             onClick={() => {
-              navigate(`/post/${post.id}`, {
+              navigate(`/post/${id}`, {
                 state: { from: location.pathname },
               });
             }}
@@ -120,7 +120,7 @@ const Post = ({ post }) => {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          {userData?.id === post.User.id && (
+          {userData?.id === author.id && (
             <Tooltip text="Delete post">
               <button
                 onClick={() => toggleModal(true)}

@@ -7,6 +7,8 @@ const CommentSidebar = ({ comments }) => {
 
   const indexOfLastComment = currentPage * commentsPerPage;
   const indexOfFirstComment = indexOfLastComment - commentsPerPage;
+  console.log(comments);
+  
   const currentComments = comments.slice(
     indexOfFirstComment,
     indexOfLastComment
@@ -30,7 +32,7 @@ const CommentSidebar = ({ comments }) => {
             >
               <div className="flex gap-1">
                 <img
-                  // src={comment.user.avatar}
+                  src={comment.author.avatar}
                   alt="User Avatar"
                   className="rounded-full overflow-hidden w-[30px] h-[30px] object-cover"
                 />
@@ -38,7 +40,7 @@ const CommentSidebar = ({ comments }) => {
                 <div className="flex flex-col">
                   <span className="text-md font-semibold hover:underline">
                     <Link to={`/user/${comment.userId}`}>
-                      {/* {comment.user.name} */}
+                      {comment.author.name}
                     </Link>
                   </span>
                   <p className="text-gray-500 text-xs ml-1">

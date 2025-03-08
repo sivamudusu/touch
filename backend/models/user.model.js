@@ -2,6 +2,7 @@ const Sequelize = require('sequelize');
 const sequelize = require('../utils/database');
 const Post = require('./post.model');
 const Community = require('./community.model');
+const getCurrentContextData = require('../utils/contextData');
 
 
 const User = sequelize.define('User', {
@@ -45,15 +46,75 @@ const User = sequelize.define('User', {
   timestamps: true
 });
 
-User.belongsToMany(User, { as: 'Followers', through: 'UserFollowers', foreignKey: 'followerId' });
-User.belongsToMany(User, { as: 'Following', through: 'UserFollowing', foreignKey: 'followingId' });
-User.belongsToMany(Post, { through: 'SavedPosts', foreignKey: 'userId' });
-// User model
-User.belongsToMany(Community, { as: "membersOf", through: "CommunityMembers", foreignKey: "userId" });
-Community.belongsToMany(User, { as: "members", through: "CommunityMembers", foreignKey: "communityId" });
-Post.belongsTo(User ,{foreignKey : "userId"})
+const setupAssociations = (models) => {
+  const { Post, Community, Preference, Context } = models;
+  
+  // Self-referential associations for following
+  User.belongsToMany(User, { 
+    as: 'Followers', 
+    through: 'UserFollowers', 
+    foreignKey: 'followerId' 
+  });
+  
+  User.belongsToMany(User, { 
+    as: 'Following', 
+    through: 'UserFollowing', 
+    foreignKey: 'followingId' 
+  });
 
-User.belongsToMany(Community, { as: "bannedMembersOf", through: "BannedCommunityMembers", foreignKey: "userId" });
-Community.belongsToMany(User, { as: "bannedMembers", through: "BannedCommunityMembers", foreignKey: "communityId" });
+  // Post associations
+  User.hasMany(Post, {
+    foreignKey: 'userId',
+    as: 'posts'
+  });
 
-module.exports = User;
+  // Community associations
+  User.belongsToMany(Community, { 
+    as: "membersOf", 
+    through: "CommunityMembers", 
+    foreignKey: "userId",
+    otherKey: "communityId"
+  });
+  
+
+  // Preference associations
+  User.hasOne(Preference, {
+    foreignKey: 'userId',
+    as: 'preferences'
+  });
+
+  // Context associations
+  User.hasMany(Context, {
+    foreignKey: 'userId',
+    as: 'contexts'
+  });
+
+  // Set up the afterCreate hook to create both preference and context
+  User.addHook('afterCreate', async (user, options) => {
+    try {
+      // Create preference
+      await Preference.create({ 
+        userId: user.id,
+        enableContextBasedAuth: true
+      });
+
+      // Create initial context from signup request
+      if (options.req) { // Pass req in options when creating user
+        const contextData = getCurrentContextData(options.req);
+        await Context.create({
+          userId: user.id,
+          email: user.email,
+          ...contextData,
+          isTrusted: true // First signup context is trusted
+        });
+      }
+    } catch (error) {
+      console.error('Error in afterCreate hook:', error);
+    }
+  });
+};
+
+module.exports = {
+  User,
+  setupAssociations
+};

@@ -2,11 +2,9 @@ const fs = require('fs');
 
 
 function avatarUpload(req, res, next) {
-  console.log(req);
   const multer = require('multer');
   const path = require("path");
   const up_folder = path.join(__dirname, "../../assets/userAvatars");
-  console.log(up_folder);
 
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {

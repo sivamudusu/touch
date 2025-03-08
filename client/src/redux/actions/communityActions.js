@@ -318,3 +318,27 @@ export const leaveFetchData = (communityName) => async (dispatch) => {
     });
   }
 };
+
+export const createCommunityAction = (communityName) => async (dispatch) => {
+  try {
+    await dispatch({ type: "CREATE_COMMUNITY_REQUEST" });
+
+    const { error } = await api.createCommunity(communityName);
+    if (error) {
+      throw new Error(error);
+    }
+
+    dispatch({
+      type: "CREATE_COMMUNITY_SUCCESS",
+      payload: data,
+    });
+
+    // Refresh the communities list
+    dispatch(getNotJoinedCommunitiesAction());
+  } catch (error) {
+    dispatch({
+      type: "CREATE_COMMUNITY_FAIL",
+      payload: error.message,
+    });
+  }
+};

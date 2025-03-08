@@ -1,7 +1,5 @@
-
 const Sequelize = require('sequelize');
 const sequelize = require('../utils/database');
-
 
 const Config = sequelize.define('Config', {
     usePerspectiveAPI: {
@@ -29,5 +27,12 @@ const Config = sequelize.define('Config', {
     },
     timestamps: true
   });
-  
-  module.exports = Config;
+
+const setupAssociations = (models) => {
+  // Add any associations for Config model here if needed in the future
+};
+
+module.exports = {
+  Config,
+  setupAssociations
+};

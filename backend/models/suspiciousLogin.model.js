@@ -48,21 +48,30 @@ const SuspiciousLogin = sequelize.define('SuspiciousLogin', {
   },
   unverifiedAttempts: {
     type: Sequelize.INTEGER,
-    allowNull: false,
     defaultValue: 0
-  },
-  isTrusted: {
-    type: Sequelize.BOOLEAN,
-    allowNull: false,
-    defaultValue: false
   },
   isBlocked: {
     type: Sequelize.BOOLEAN,
-    allowNull: false,
+    defaultValue: false
+  },
+  isTrusted: {
+    type: Sequelize.BOOLEAN,
     defaultValue: false
   }
 }, {
   timestamps: true
 });
 
-module.exports = SuspiciousLogin;
+const setupAssociations = (models) => {
+  const { User } = models;
+  
+  SuspiciousLogin.belongsTo(User, {
+    foreignKey: 'userId',
+    onDelete: 'CASCADE'
+  });
+};
+
+module.exports = {
+  SuspiciousLogin,
+  setupAssociations
+};

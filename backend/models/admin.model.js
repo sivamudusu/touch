@@ -39,5 +39,12 @@ const Admin = sequelize.define('Admin', {
       }
     }
   });
-  
-  module.exports = Admin;
+
+const setupAssociations = (models) => {
+  // Add any associations for Admin model here if needed in the future
+};
+
+module.exports = {
+  Admin,
+  setupAssociations
+};

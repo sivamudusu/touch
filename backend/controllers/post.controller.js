@@ -3,85 +3,78 @@ const relativeTime = require("dayjs/plugin/relativeTime");
 dayjs.extend(relativeTime);
 const formatCreatedAt = require("../utils/timeConverter");
 
-const Post = require("../models/post.model");
-const Community = require("../models/community.model");
-const Comment = require("../models/comment.model");
-const User = require("../models/user.model");
+const { Post, User, Community, Comment, Like } = require('../models');  // Import all models from index.js
+const Sequelize = require('sequelize');
+const fs = require('fs').promises;
+const path = require('path');
 const Relationship = require("../models/relationship.model");
 const Report = require("../models/report.model");
 const PendingPost = require("../models/pendingPost.model");
-const fs = require("fs");
-const Like = require("../models/like.model");
 const { where } = require("sequelize");
 
 const createPost = async (req, res) => {
   try {
-    const { communityId, content } = req.body;
-    const { userId, fileUrl, fileType } = req;
-
-    // Check if the user is a member of the community
-    const community = await Community.findOne({
-      where: {
-        id: communityId
-      },
-      include: [{
-        model: User,
-        as: 'members',
-        where: {
-          id: userId
-        }
-      }]
-    });
-
-    if (!community) {
-      if (fileUrl) {
-        // Delete the uploaded file if it exists
-        fs.unlink(fileUrl, (err) => {
-          if (err) {
-            console.error(err);
-          }
-        });
-      }
-
-      return res.status(401).json({
-        message: "Unauthorized to post in this community",
+    const postContent = req.body.content;
+    const communityName = req.body.communityName;
+    
+    console.log('Request body:', req.body);
+    
+    // Validate required fields
+    if (!postContent || !communityName) {
+      return res.status(400).json({
+        message: "Post content and community name are required"
       });
     }
 
-    // Create a new post
-    const newPost = await Post.create({
-      userId: userId,
-      communityId: communityId,
-      content: content,
-      fileUrl: fileUrl ? fileUrl : null,  
-      fileType: fileType ? fileType : null,
+    // Find the community
+    const community = await Community.findOne({
+      where: { name: communityName }
     });
 
-    // Fetch the created post with user and community details
-    const post = await Post.findOne({
-      where: { id: newPost.id },
-      include: [{
-        model: User,
-        attributes: ['name', 'avatar']
-      }, {
-        model: Community,
-        attributes: ['name']
-      },{ model: Like, attributes: ['userId'],required: false,}]
+    if (!community) {
+      return res.status(404).json({
+        message: "Community not found"
+      });
+    }
+
+    // Create the post with validated data
+    const postData = {
+      content: postContent.trim(),
+      userId: req.userId,
+      communityId: community.id
+    };
+
+    // Add file data if present
+    if (req.file) {
+      postData.fileUrl = `/uploads/${req.file.filename}`;
+      postData.fileType = req.file.mimetype;
+    }
+
+    // Create the post
+    const post = await Post.create(postData);
+
+    // Fetch the created post with associations
+    const createdPost = await Post.findByPk(post.id, {
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar']
+        },
+        {
+          model: Community,
+          attributes: ['id', 'name']
+        }
+      ]
     });
 
-
-    const formattedPosts = ({
-      ...post.toJSON(),
-      createdAt: dayjs(post.createdAt).fromNow(),
-      Likes: post.Likes.map(like => like.userId)
-    });
-
-
-    res.json(formattedPosts);
+    res.status(201).json(createdPost);
   } catch (error) {
-    console.error(error);
+    console.error('Error creating post:', error);
+    console.error('Request body:', req.body);
     res.status(500).json({
       message: "Error creating post",
+      error: error.message
     });
   }
 };
@@ -172,70 +165,62 @@ const clearPendingPosts = async (req, res) => {
   }
 };
 const getPost = async (req, res) => {
-  console.log("in get post");
   try {
-    const postId = req.params.id;
-    const userId = req.userId;
+    const { id } = req.params;
 
     const post = await Post.findOne({
-      where: { id: postId },
-      include: [{
-        model: User,
-        attributes: ['name', 'avatar']
-      }, {
-        model: Community,
-        attributes: ['name']
-      },{ model: Like, attributes: ['userId'],required: false,},
-      {
-        model : Comment,
-        required : false
-      }
-    
-    ]
+      where: { id },
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar']
+        },
+        {
+          model: Community,
+          attributes: ['id', 'name']
+        },
+        {
+          model: Comment,
+          separate: true,
+          include: [
+            {
+              model: User,
+              as: 'author',
+              attributes: ['id', 'name', 'avatar']
+            }
+          ]
+        },
+        {
+          model: Like,
+          separate: true
+        }
+      ]
     });
 
     if (!post) {
-      return res.status(404).json({ message: "Post not found" });
+      return res.status(404).json({
+        message: "Post not found"
+      });
     }
 
-    // const comments = await Comment.findAll({
-    //   where : {postId : postId}
-    // })
-
-    // const formattedComments = comments.map(comment => ({
-    //   id: comment.id,
-    //   content: comment.content,
-    //   user: {
-    //     id: comment.User.id,
-    //     name: comment.User.name,
-    //     avatar: comment.User.avatar,
-    //     // Add other user properties as needed
-    //   },
-    //   // Add other comment properties as needed
-    // }));
-
-    const formattedPosts = ({
-      ...post.toJSON(),
+    // Format the post to match frontend requirements
+    const formattedPost = {
+      ...post.get({ plain: true }),
       createdAt: dayjs(post.createdAt).fromNow(),
-      Likes: post.Likes.map(like => like.userId),
-      comments : post.Comments.map(comment => comment)
-    });
-    console.log(formattedPosts);
+      Comments: post.Comments || [],
+      Likes: (post.Likes || []).map(like => like.userId),
+      author: post.author,
+      Community: post.Community
+    };
 
-    // const comments = await findCommentsByPostId(postId);
-
-    // post.comments = formatComments(comments);
-    // post.dateTime = formatCreatedAt(post.createdAt);
-    // post.createdAt = dayjs(post.createdAt).fromNow();
-    // post.savedByCount = await countSavedPosts(postId);
-
-    // const report = await findReportByPostAndUser(postId, userId);
-    // post.isReported = !!report;
-
-    res.status(200).json(formattedPosts);
+    res.status(200).json(formattedPost);
   } catch (error) {
+    console.error('Error getting post:', error);
+    console.error('Request params:', req.params);
     res.status(500).json({
-      message: "Error getting post",
+      message: "Error retrieving post",
+      error: error.message
     });
   }
 };
@@ -278,25 +263,47 @@ const findReportByPostAndUser = async (postId, userId) =>
       const posts = await Post.findAll({
         where: { communityId: communityIds },
         include: [
-          { model: User, attributes: ['id','name', 'avatar'] },
-          { model: Community, attributes: ['name'] },
-          { model: Like, attributes: ['userId'],required: false, },
-          {model : Comment,required : false }
-          
+          { 
+            model: User,
+            as: 'author',
+            attributes: ['id', 'name', 'avatar']
+          },
+          { 
+            model: Community,
+            attributes: ['id', 'name']
+          },
+          {
+            model: Comment,
+            separate: true,
+            include: [
+              {
+                model: User,
+                as: 'author',
+                attributes: ['id', 'name', 'avatar']
+              }
+            ]
+          },
+          {
+            model: Like,
+            separate: true
+          }
         ],
         order: [['createdAt', 'DESC']],
         offset: parseInt(skip),
         limit: parseInt(limit)
       });
   
-      const formattedPosts = posts.map((post) => ({
-        ...post.toJSON(),
-        createdAt: dayjs(post.createdAt).fromNow(),
-        Likes: post.Likes.map(like => like.userId),
-        comments : post.Comments.map(comment => comment)
-      }));
-
-      console.log(formattedPosts);
+      const formattedPosts = posts.map((post) => {
+        const plainPost = post.get({ plain: true });
+        return {
+          ...plainPost,
+          createdAt: dayjs(plainPost.createdAt).fromNow(),
+          Comments: plainPost.Comments || [],
+          Likes: (plainPost.Likes || []).map(like => like.userId),
+          author: plainPost.author,
+          Community: plainPost.Community
+        };
+      });
   
       const totalPosts = await Post.count({ where: { communityId: communityIds } });
 
@@ -320,102 +327,77 @@ const findReportByPostAndUser = async (postId, userId) =>
  */
 const getCommunityPosts = async (req, res) => {
   try {
-    const communityId = req.params.communityId;
-    const userId = req.userId;
+    const { communityId } = req.params;
+    
+    console.log('Getting posts for community:', communityId);
 
-    const { limit = 10, skip = 0 } = req.query;
-
-    // Check if the user is a member of the community
-    const isMember = await Community.findOne({
-      where: {
-        id: communityId
-      },
-      include: [
-        {
-          model: User,
-          as: 'members',
-          where: {
-            id: userId
-          }
-        }
-      ]
-    });
-
-    if (!isMember) {
-      return res.status(401).json({
-        message: "Unauthorized to view posts in this community",
+    if (!communityId) {
+      return res.status(400).json({
+        message: "Community ID is required"
       });
     }
 
-    // Fetch posts for the community
-    // const posts = await Post.findAll({
-    //   where: {
-    //     communityId: communityId
-    //   },
-    //   include: [
-    //     { 
-    //       model: User,
-    //       as : 'User', 
-    //       attributes: ['id', 'name', 'avatar'] 
-    //     },
-    //     { 
-    //       model: Community, 
-    //       as : 'Community',
-    //       attributes: ['name'] 
-    //     },
-    //     { model: Like, attributes: ['userId'],required: false, }
-    //   ],
-    //   order: [['createdAt', 'DESC']],
-    //   offset: parseInt(skip),
-    //   limit: parseInt(limit)
-    // });
-    const posts = await Post.findAll({
-      where: { communityId: communityId },
-      include: [
-        { model: User, attributes: ['id','name', 'avatar'] },
-        { model: Community, attributes: ['name'] },
-        { model: Like, attributes: ['userId'],required: false, },
-        { model: Comment,required : false}
-        
-      ],
-      order: [['createdAt', 'DESC']],
-      offset: parseInt(skip),
-      limit: parseInt(limit)
+    const community = await Community.findOne({
+      where: { id: communityId }
     });
 
-    // Format createdAt for each post
-    // const formattedPosts = posts.map((post) => ({
-    //   id: post.id,
-    //   content: post.content,
-    //   fileUrl: post.fileUrl,
-    //   fileType: post.fileType,
-    //   communityId: post.communityId,
-    //   userId: post.userId,
-    //   createdAt: dayjs(post.createdAt).fromNow(),
-    //   updatedAt: post.updatedAt,
-    //   User: {
-    //     id: post.User.id,
-    //     name: post.User.name,
-    //     avatar: post.User.avatar
-    //   },
-    //   Community: {
-    //     name: post.Community.name
-    //   },
-    //   Likes: post.Likes.map(like => like.userId)
+    if (!community) {
+      return res.status(404).json({
+        message: "Community not found"
+      });
+    }
 
-    // }));
-    const formattedPosts = posts.map((post) => ({
-      ...post.toJSON(),
-      createdAt: dayjs(post.createdAt).fromNow(),
-      Likes: post.Likes.map(like => like.userId),
-      comments : post.Comments.map(comment => comment)
-    }));
+    const posts = await Post.findAll({
+      where: { communityId: community.id },
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar']
+        },
+        {
+          model: Community,
+          attributes: ['id', 'name']
+        },
+        {
+          model: Comment,
+          separate: true,
+          include: [
+            {
+              model: User,
+              as: 'author',
+              attributes: ['id', 'name', 'avatar']
+            }
+          ]
+        },
+        {
+          model: Like,
+          separate: true
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Format the posts to match your frontend requirements
+    const formattedPosts = posts.map(post => {
+      const plainPost = post.get({ plain: true });
+      return {
+        ...plainPost,
+        createdAt: dayjs(plainPost.createdAt).fromNow(),
+        Comments: plainPost.Comments || [],
+        Likes: (plainPost.Likes || []).map(like => like.userId),
+        author: plainPost.author,
+        Community: plainPost.Community
+      };
+    });
 
     res.status(200).json(formattedPosts);
   } catch (error) {
-    console.error(error);
+    console.error('Error getting community posts:', error);
+    console.error('Request params:', req.params);
     res.status(500).json({
-      message: "Error retrieving posts",
+      message: "Error getting posts",
+      error: error.message
     });
   }
 };

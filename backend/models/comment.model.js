@@ -1,33 +1,46 @@
 const Sequelize = require('sequelize');
 const sequelize = require('../utils/database');
-const User = require('./user.model');
-const Post = require('./post.model');
-
 
 const Comment = sequelize.define('Comment', {
-    content: {
-      type: Sequelize.STRING,
-      allowNull: false,
-      trim: true,
+  content: {
+    type: Sequelize.STRING,
+    allowNull: false,
+    trim: true,
+  },
+  userId: {
+    type: Sequelize.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id',
     },
-    userId: {
-      type: Sequelize.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'Users',
-        key: 'id',
-      },
+  },
+  postId: {
+    type: Sequelize.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Posts',
+      key: 'id',
     },
-    postId: {
-      type: Sequelize.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'Posts',
-        key: 'id',
-      },
-    },
-  }, {
-    timestamps: true,
+  },
+}, {
+  timestamps: true
+});
+
+const setupAssociations = (models) => {
+  const { User, Post } = models;
+  
+  Comment.belongsTo(User, {
+    foreignKey: 'userId',
+    as: 'author'
   });
   
-  module.exports = Comment;
+  Comment.belongsTo(Post, {
+    foreignKey: 'postId'
+  });
+};
+
+module.exports = {
+  Comment,
+  setupAssociations
+};

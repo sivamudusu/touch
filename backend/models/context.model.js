@@ -1,8 +1,15 @@
-
 const Sequelize = require('sequelize');
 const sequelize = require('../utils/database');
 
 const Context = sequelize.define('Context', {
+    userId: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'Users',
+        key: 'id'
+      }
+    },
     email: {
       type: Sequelize.STRING,
       allowNull: false
@@ -48,4 +55,16 @@ const Context = sequelize.define('Context', {
     timestamps: true
   });
   
-  module.exports = Context;
+const setupAssociations = (models) => {
+  const { User } = models;
+  
+  Context.belongsTo(User, {
+    foreignKey: 'userId',
+    onDelete: 'CASCADE'
+  });
+};
+
+module.exports = {
+  Context,
+  setupAssociations
+};

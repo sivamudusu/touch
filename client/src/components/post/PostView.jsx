@@ -27,10 +27,10 @@ const PostView = ({ post, userData }) => {
     content,
     fileUrl,
     fileType,
-    User,
+    author,
     Community,
     dateTime,
-    comments,
+    Comments,
     savedByCount,
     isReported,
   } = post;
@@ -79,18 +79,18 @@ const PostView = ({ post, userData }) => {
         <div className="flex items-center gap-2">
           <img
             className="rounded-full overflow-hidden w-12 h-12 object-cover"
-            src={User.avatar}
+            src={author.avatar}
             alt="user avatar"
             loading="lazy"
           />
           <div className="flex flex-col">
-            {userData.id === User.id ? (
+            {userData.id === author.id ? (
               <Link to="/profile" className="text-lg font-semibold">
-                {User.name}
+                {author.name}
               </Link>
             ) : (
-              <Link to={`/user/${User.id}`} className="text-lg font-semibold">
-                {User.name}
+              <Link to={`/user/${author.id}`} className="text-lg font-semibold">
+                {author.name}
               </Link>
             )}
             <Link
@@ -112,7 +112,7 @@ const PostView = ({ post, userData }) => {
             <PhotoProvider
               overlayRender={() => (
                 <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-10 text-white px-3 py-2">
-                  <p className="text-xs">{User.name}</p>
+                  <p className="text-xs">{author.name}</p>
                   <p className="text-xs">{Community.name}</p>
                   <p className="text-xs">{dateTime}</p>
                 </div>
@@ -148,7 +148,7 @@ const PostView = ({ post, userData }) => {
           <Like post={post} />
           <button className="flex items-center space-x-1">
             <HiOutlineChatBubbleOvalLeft className="text-2xl" />
-            <span className="text-lg">{comments.length}</span>
+            <span className="text-lg">{Comments.length}</span>
           </button>
         </div>
         <div className="flex items-center space-x-2">

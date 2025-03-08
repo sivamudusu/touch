@@ -22,4 +22,21 @@ const Relationship = sequelize.define('Relationship', {
   timestamps: true
 });
 
-module.exports = Relationship;
+const setupAssociations = (models) => {
+  const { User } = models;
+  
+  Relationship.belongsTo(User, {
+    foreignKey: 'followerId',
+    as: 'follower'
+  });
+
+  Relationship.belongsTo(User, {
+    foreignKey: 'followingId', 
+    as: 'following'
+  });
+};
+
+module.exports = {
+  Relationship,
+  setupAssociations
+};

@@ -14,6 +14,7 @@ const Post = () => {
   const navigate = useNavigate();
 
   const userData = useSelector((state) => state.auth?.userData);
+  
 
 
 
@@ -30,6 +31,8 @@ const Post = () => {
   }, [dispatch, postId]);
 
   const post = useSelector((state) => state.posts?.post);
+  console.log(post);
+  
 
 
   const isAuthorized = useMemo(() => {
@@ -52,7 +55,7 @@ const Post = () => {
   return (
     <Suspense fallback={<FallbackLoading />}>
       <PostView post={post} userData={userData} />
-      <CommentSidebar comments={post.comments} />
+      <CommentSidebar comments={post.Comments} />
     </Suspense>
   );
 };

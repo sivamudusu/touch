@@ -2,6 +2,14 @@ const Sequelize = require('sequelize');
 const sequelize = require('../utils/database');
 
 const Token = sequelize.define('Token', {
+  accessToken: {
+    type: Sequelize.STRING,
+    allowNull: false
+  },
+  refreshToken: {
+    type: Sequelize.STRING,
+    allowNull: false
+  },
   userId: {
     type: Sequelize.INTEGER,
     allowNull: false,
@@ -9,20 +17,18 @@ const Token = sequelize.define('Token', {
       model: 'Users',
       key: 'id'
     }
-  },
-  refreshToken: {
-    type: Sequelize.STRING,
-    allowNull: false
-  },
-  accessToken: {
-    type: Sequelize.STRING,
-    allowNull: false
-  },
-  createdAt: {
-    type: Sequelize.DATE,
-    allowNull: false,
-    defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
   }
 });
 
-module.exports = Token;
+const setupAssociations = (models) => {
+  const { User } = models;
+  
+  Token.belongsTo(User, {
+    foreignKey: 'userId'
+  });
+};
+
+module.exports = {
+  Token,
+  setupAssociations
+};

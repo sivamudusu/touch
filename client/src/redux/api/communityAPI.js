@@ -108,6 +108,14 @@ export const getCommunityMods = async (communityName) => {
     return handleApiError(error);
   }
 };
+export const createCommunity = async(communityName)=>{
+  try{
+    const {data} = await COMMUNITY_API.post(`/communities/${communityName}`);
+    return { error: null, data };
+  }catch (error) {
+    return handleApiError(error);
+  }
+}
 
 export const banUser = async (communityName, userId) => {
   try {

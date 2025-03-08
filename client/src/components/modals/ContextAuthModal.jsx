@@ -53,7 +53,7 @@ const ContextAuthModal = ({
                   isModerator
                     ? "hidden"
                     : "bg-primary hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-opacity-50"
-                } text-white px-4 py-2 rounded-md`}
+                } text-green-600 px-4 py-2 rounded-md`}
               >
                 Yes, enable
               </button>

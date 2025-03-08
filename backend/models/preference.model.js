@@ -2,12 +2,12 @@ const Sequelize = require('sequelize');
 const sequelize = require('../utils/database');
 
 const Preference = sequelize.define('Preference', {
-  user: {
+  userId: {
     type: Sequelize.INTEGER,
     allowNull: false,
     unique: true,
     references: {
-      model: 'Users',
+      model: 'Users', 
       key: 'id'
     }
   },
@@ -20,4 +20,16 @@ const Preference = sequelize.define('Preference', {
   timestamps: true
 });
 
-module.exports = Preference;
+const setupAssociations = (models) => {
+  const { User } = models;
+  
+  Preference.belongsTo(User, {
+    foreignKey: 'userId',
+    onDelete: 'CASCADE'  // Delete preference when user is deleted
+  });
+};
+
+module.exports = {
+  Preference,
+  setupAssociations
+};

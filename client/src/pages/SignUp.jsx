@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
 import { signUpAction, clearMessage } from "../redux/actions/authActions";
 import { Link } from "react-router-dom";
-// import ContextAuthModal from "../components/modals/ContextAuthModal";
+import ContextAuthModal from "../components/modals/ContextAuthModal";
 import { RxCross1 } from "react-icons/rx";
 // import ButtonLoadingSpinner from "../components/loader/ButtonLoadingSpinner";
 // import Logo from "../assets/SocialEcho.png";
@@ -76,7 +76,7 @@ const SignUpNew = () => {
     formData.set("password", password);
     formData.append("avatar", avatar);
     formData.append("role", "general");
-    // formData.append("isConsentGiven", isConsentGiven.toString());
+    formData.append("isConsentGiven", isConsentGiven.toString());
 
     const timeout = setTimeout(() => {
       setLoadingText(
@@ -290,12 +290,12 @@ const SignUpNew = () => {
             </div>
 
             <div>
-              {/* <ContextAuthModal
+              <ContextAuthModal
                 isModalOpen={isModalOpen}
                 setIsModalOpen={setIsModalOpen}
                 setIsConsentGiven={setIsConsentGiven}
                 isModerator={isModerator}
-              /> */}
+              />
             </div>
           </div>
         </form>

@@ -1,15 +1,13 @@
 const bcrypt = require("bcrypt");
-const User = require("../models/user.model");
+const { User, Post, Community,Token } = require('../models');
 const jwt = require("jsonwebtoken");
-const Token = require("../models/token.model");
-const Post = require("../models/post.model");
-const Community = require("../models/community.model");
 const UserPreference = require("../models/preference.model");
 const formatCreatedAt = require("../utils/timeConverter");
-// const { verifyContextData, types } = require("./auth.controller");
-// const { saveLogInfo } = require("../middlewares/logger/logInfo");
+const { verifyContextData, types } = require("./auth.controller");
+const { saveLogInfo } = require("../middlewares/logger/logInfo");
 const duration = require("dayjs/plugin/duration");
 const dayjs = require("dayjs");
+const Admin = require("../models/admin.model");
 dayjs.extend(duration);
 
 const LOG_TYPE = {
@@ -36,24 +34,26 @@ const MESSAGE = {
 };
 
 const signin = async (req, res, next) => {
-//   await saveLogInfo(
-//     req,
-//     "User attempting to sign in",
-//     LOG_TYPE.SIGN_IN,
-//     LEVEL.INFO
-//   );
+  
+  await saveLogInfo(
+    req,
+    "User attempting to sign in",
+    LOG_TYPE.SIGN_IN,
+    LEVEL.INFO
+  );
 
   try {
     const { email, password } = req.body;
     const existingUser = await User.findOne({where : {email}});
     
+    
     if (!existingUser) {
-    //   await saveLogInfo(
-    //     req,
-    //     MESSAGE.INCORRECT_EMAIL,
-    //     LOG_TYPE.SIGN_IN,
-    //     LEVEL.ERROR
-    //   );
+      await saveLogInfo(
+        req,
+        MESSAGE.INCORRECT_EMAIL,
+        LOG_TYPE.SIGN_IN,
+        LEVEL.ERROR
+      );
 
       return res.status(404).json({
         message: "Invalid credentials",
@@ -64,105 +64,106 @@ const signin = async (req, res, next) => {
       password,
       existingUser.password
     );
+    
 
     if (!isPasswordCorrect) {
-    //   await saveLogInfo(
-    //     req,
-    //     MESSAGE.INCORRECT_PASSWORD,
-    //     LOG_TYPE.SIGN_IN,
-    //     LEVEL.ERROR
-    //   );
+      await saveLogInfo(
+        req,
+        MESSAGE.INCORRECT_PASSWORD,
+        LOG_TYPE.SIGN_IN,
+        LEVEL.ERROR
+      );
 
       return res.status(400).json({
         message: "Invalid credentials",
       });
     }
 
-    // const isContextAuthEnabled = await UserPreference.findOne({
-    //   user: existingUser._id,
-    //   enableContextBasedAuth: true,
-    // });
+    const isContextAuthEnabled = true;
+    
 
-    // if (isContextAuthEnabled) {
-    //   const contextDataResult = await verifyContextData(req, existingUser);
+    if (isContextAuthEnabled) {
+      const contextDataResult = await verifyContextData(req, existingUser);
+      console.log(contextDataResult);
+      
 
-    //   if (contextDataResult === types.BLOCKED) {
-    //     await saveLogInfo(
-    //       req,
-    //       MESSAGE.DEVICE_BLOCKED,
-    //       LOG_TYPE.SIGN_IN,
-    //       LEVEL.WARN
-    //     );
+      if (contextDataResult === types.BLOCKED) {
+        await saveLogInfo(
+          req,
+          MESSAGE.DEVICE_BLOCKED,
+          LOG_TYPE.SIGN_IN,
+          LEVEL.WARN
+        );
 
-    //     return res.status(401).json({
-    //       message:
-    //         "You've been blocked due to suspicious login activity. Please contact support for assistance.",
-    //     });
-    //   }
+        return res.status(401).json({
+          message:
+            "You've been blocked due to suspicious login activity. Please contact support for assistance.",
+        });
+      }
 
-    //   if (
-    //     contextDataResult === types.NO_CONTEXT_DATA ||
-    //     contextDataResult === types.ERROR
-    //   ) {
-    //     // await saveLogInfo(
-    //     //   req,
-    //     //   MESSAGE.CONTEXT_DATA_VERIFY_ERROR,
-    //     //   LOG_TYPE.SIGN_IN,
-    //     //   LEVEL.ERROR
-    //     // );
+      if (
+        contextDataResult === types.NO_CONTEXT_DATA ||
+        contextDataResult === types.ERROR
+      ) {
+        await saveLogInfo(
+          req,
+          MESSAGE.CONTEXT_DATA_VERIFY_ERROR,
+          LOG_TYPE.SIGN_IN,
+          LEVEL.ERROR
+        );
 
-    //     return res.status(500).json({
-    //       message: "Error occurred while verifying context data",
-    //     });
-    //   }
+        return res.status(500).json({
+          message: "Error occurred while verifying context data",
+        });
+      }
 
-    //   if (contextDataResult === types.SUSPICIOUS) {
-    //     // await saveLogInfo(
-    //     //   req,
-    //     //   MESSAGE.MULTIPLE_ATTEMPT_WITHOUT_VERIFY,
-    //     //   LOG_TYPE.SIGN_IN,
-    //     //   LEVEL.WARN
-    //     // );
+      if (contextDataResult === types.SUSPICIOUS) {
+        await saveLogInfo(
+          req,
+          MESSAGE.MULTIPLE_ATTEMPT_WITHOUT_VERIFY,
+          LOG_TYPE.SIGN_IN,
+          LEVEL.WARN
+        );
 
-    //     return res.status(401).json({
-    //       message: `You've temporarily been blocked due to suspicious login activity. We have already sent a verification email to your registered email address. 
-    //       Please follow the instructions in the email to verify your identity and gain access to your account.
+        return res.status(401).json({
+          message: `You've temporarily been blocked due to suspicious login activity. We have already sent a verification email to your registered email address. 
+          Please follow the instructions in the email to verify your identity and gain access to your account.
 
-    //       Please note that repeated attempts to log in without verifying your identity will result in this device being permanently blocked from accessing your account.
+          Please note that repeated attempts to log in without verifying your identity will result in this device being permanently blocked from accessing your account.
           
-    //       Thank you for your cooperation`,
-    //     });
-    //   }
+          Thank you for your cooperation`,
+        });
+      }
 
-    //   if (contextDataResult.mismatchedProps) {
-    //     const mismatchedProps = contextDataResult.mismatchedProps;
-    //     const currentContextData = contextDataResult.currentContextData;
-    //     if (
-    //       mismatchedProps.some((prop) =>
-    //         [
-    //           "ip",
-    //           "country",
-    //           "city",
-    //           "device",
-    //           "deviceLOG_TYPE",
-    //           "os",
-    //           "platform",
-    //           "browser",
-    //         ].includes(prop)
-    //       )
-    //     ) {
-    //       req.mismatchedProps = mismatchedProps;
-    //       req.currentContextData = currentContextData;
-    //       req.user = existingUser;
-    //       return next();
-    //     }
-    //   }
-    // }
+      if (contextDataResult.mismatchedProps) {
+        const mismatchedProps = contextDataResult.mismatchedProps;
+        const currentContextData = contextDataResult.currentContextData;
+        if (
+          mismatchedProps.some((prop) =>
+            [
+              "ip",
+              "country", 
+              "city",
+              "device",
+              "deviceType",
+              "os",
+              "platform", 
+              "browser"
+            ].includes(prop)
+          )
+        ) {
+          req.mismatchedProps = mismatchedProps;
+          req.currentContextData = currentContextData;
+          req.user = existingUser;
+          return next();
+        }
+      }
+    }
 
     const payload = {
       id: existingUser.id,
       email: existingUser.email,
-    };
+    };       
 
 
     const accessToken = jwt.sign(payload, process.env.SECRET, {
@@ -172,13 +173,14 @@ const signin = async (req, res, next) => {
     const refreshToken = jwt.sign(payload, process.env.REFRESH_SECRET, {
       expiresIn: "7d",
     });
-
+    
 
     await Token.create({
       userId: existingUser.id,
       refreshToken,
       accessToken,
     });
+    
 
     res.status(200).json({
       accessToken,
@@ -193,12 +195,12 @@ const signin = async (req, res, next) => {
       },
     });
   } catch (err) {
-    // await saveLogInfo(
-    //   req,
-    //   MESSAGE.SIGN_IN_ERROR + err.message,
-    //   LOG_TYPE.SIGN_IN,
-    //   LEVEL.ERROR
-    // );
+    await saveLogInfo(
+      req,
+      MESSAGE.SIGN_IN_ERROR + err.message,
+      LOG_TYPE.SIGN_IN,
+      LEVEL.ERROR
+    );
 
     res.status(500).json({
       message: "Something went wrong",
@@ -217,70 +219,74 @@ const signin = async (req, res, next) => {
  */
 const getUser = async (req, res, next) => {
   try {
-    const id = req.params.id
-    const user = await User.findOne({where : {id},attributes : {exclude : ['password']}});
+    const user = await User.findOne({
+      where: { id: req.params.id },
+      attributes: { exclude: ['password'] },
+      include: [
+        {
+          model: Community,
+          as: 'membersOf',
+          through: { attributes: [] }
+        }
+      ]
+    });
 
-    const totalPosts = await Post.count({where : {userId : id}});
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
+    const totalPosts = await Post.count({
+      where: { userId: req.params.id }
+    });
 
-    const communities = await Community.findAll({
-        include: [{
-          model: User,
-          as : "members",
-          through: {
-            
-            where: { userId: id }
-          }
-        }]
-      }
-        
-    );
-    
-    const totalCommunities = communities.length;
-    console.log(totalCommunities);
+    const totalCommunities = await Community.count({
+      include: [{
+        model: User,
+        as: 'members',
+        where: { id: req.params.id },
+        through: { attributes: [] }
+      }]
+    });
 
-    const postCommunities = await Post.findAll({where :{id}});
-    const totalPostCommunities = postCommunities.length;
+    const postCommunities = await Post.findAll({
+      where: { userId: req.params.id },
+      attributes: ['communityId'],
+      group: ['communityId']
+    });
 
     const createdAt = dayjs(user.createdAt);
     const now = dayjs();
     const durationObj = dayjs.duration(now.diff(createdAt));
-    const durationMinutes = durationObj.asMinutes();
-    const durationHours = durationObj.asHours();
-    const durationDays = durationObj.asDays();
+    const duration = formatDuration(durationObj);
 
-    user.totalPosts = totalPosts;
-    user.totalCommunities = totalCommunities;
-    user.totalPostCommunities = totalPostCommunities;
-    user.duration = "";
-
-    if (durationMinutes < 60) {
-      user.duration = `${Math.floor(durationMinutes)} minutes`;
-    } else if (durationHours < 24) {
-      user.duration = `${Math.floor(durationHours)} hours`;
-    } else if (durationDays < 365) {
-      user.duration = `${Math.floor(durationDays)} days`;
-    } else {
-      const durationYears = Math.floor(durationDays / 365);
-      user.duration = `${durationYears} years`;
-    }
-    // const posts = await Post.find({ user: user._id })
-    //   .populate("community", "name members")
-    //   .limit(20)
-    //   .lean()
-    //   .sort({ createdAt: -1 });
-
-    // user.posts = posts.map((post) => ({
-    //   ...post,
-    //   isMember: post.community?.members
-    //     .map((member) => member.toString())
-    //     .includes(user._id.toString()),
-    //   createdAt: formatCreatedAt(post.createdAt),
-    // }));
-
-    res.status(200).json(user);
+    res.status(200).json({
+      ...user.toJSON(),
+      totalPosts,
+      totalCommunities,
+      totalPostCommunities: postCommunities.length,
+      duration
+    });
   } catch (err) {
+    console.error('Error in getUser:', err);
     next(err);
+  }
+};
+
+// Helper function to format duration
+const formatDuration = (durationObj) => {
+  const durationMinutes = durationObj.asMinutes();
+  const durationHours = durationObj.asHours();
+  const durationDays = durationObj.asDays();
+
+  if (durationMinutes < 60) {
+    return `${Math.floor(durationMinutes)} minutes`;
+  } else if (durationHours < 24) {
+    return `${Math.floor(durationHours)} hours`;
+  } else if (durationDays < 365) {
+    return `${Math.floor(durationDays)} days`;
+  } else {
+    const durationYears = Math.floor(durationDays / 365);
+    return `${durationYears} years`;
   }
 };
 
@@ -296,37 +302,44 @@ const getUser = async (req, res, next) => {
  * @param {Function} next - The next middleware function to call if consent is given by the user to enable context based auth.
  */
 const addUser = async (req, res, next) => {
-  let newUser;
-  console.log(req.body.name);
-  const hashedPassword = await bcrypt.hash(req.body.password, 10);
-  /**
-   * @type {boolean} isConsentGiven
-   */
-  const isConsentGiven = false;
-
-  const defaultAvatar =
-    "https://raw.githubusercontent.com/nz-m/public-files/main/dp.jpg";
-  const fileUrl = req.files?.[0]?.filename
-    ? `http://localhost:8080/userAvatars/${
-        req.files[0].filename
-      }`
-    : defaultAvatar;
-
-  const emailDomain = req.body.email.split("@")[1];
-  const role = emailDomain === "mod.socialecho.com" ? "moderator" : "general";
-
-  newUser = new User({
-    name: req.body.name,
-    email: req.body.email,
-    password: hashedPassword,
-    role: role,
-    avatar: fileUrl,
-  });
-
+  
   try {
-    await newUser.save();
-    if (newUser.isNew) {
-      throw new Error("Failed to add user");
+    console.log(req.body);
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    /**
+     * @type {boolean} isConsentGiven
+     */
+    const isConsentGiven = req.body.isConsentGiven;
+  
+    const defaultAvatar =
+      "https://raw.githubusercontent.com/nz-m/public-files/main/dp.jpg";
+    const fileUrl = req.files?.[0]?.filename
+      ? `http://localhost:8080/userAvatars/${
+          req.files[0].filename
+        }`
+      : defaultAvatar;
+  
+    const emailDomain = req.body.email.split("@")[1];
+    const role = emailDomain === "mod.touch.com" ? "moderator" : "general";
+  
+    const newUser = await User.create({
+      name: req.body.name,
+      email: req.body.email,
+      password: hashedPassword,
+      role: role,
+      avatar: fileUrl,
+    }, {
+      req: req  // Pass request in options for the afterCreate hook
+    });
+  
+    // If moderator, create admin account
+    if (role === "moderator") {
+      const newAdmin = new Admin({
+        username: req.body.name,
+        password: hashedPassword,
+        id: newUser.id,
+      });
+      await newAdmin.save();
     }
 
     if (isConsentGiven === false) {
@@ -334,7 +347,9 @@ const addUser = async (req, res, next) => {
         message: "User added successfully",
       });
     } else {
-      next();
+      res.status(201).json({
+        message: "User added successfully",
+      });
     }
   } catch (err) {
     res.status(400).json({
@@ -345,21 +360,34 @@ const addUser = async (req, res, next) => {
 
 const logout = async (req, res) => {
   try {
-    const accessToken = req.headers.authorization?.split(" ")[1] ?? null;
+    const accessToken = req.headers.authorization?.split(" ")[1] ?? null; 
     if (accessToken) {
-      await Token.deleteOne({ accessToken });
-    //   await saveLogInfo(
-    //     null,
-    //     MESSAGE.LOGOUT_SUCCESS,
-    //     LOG_TYPE.LOGOUT,
-    //     LEVEL.INFO
-    //   );
+      const token = await Token.findOne({ where: { accessToken } });
+
+      const user = await User.findOne({where : {id : token?.userId}});
+      req.body.email = user?.email;
+      await Token.destroy({ 
+        where: { accessToken } 
+      });
+      
+      await saveLogInfo(
+        req,
+        MESSAGE.LOGOUT_SUCCESS,
+        LOG_TYPE.LOGOUT,
+        LEVEL.INFO
+      );
     }
     res.status(200).json({
       message: "Logout successful",
     });
   } catch (err) {
-    await saveLogInfo(null, err.message, LOG_TYPE.LOGOUT, LEVEL.ERROR);
+    console.error('Logout error:', err);
+    await saveLogInfo(
+      req,
+      err.message,
+      LOG_TYPE.LOGOUT,
+      LEVEL.ERROR
+    );
     res.status(500).json({
       message: "Internal server error. Please try again later.",
     });

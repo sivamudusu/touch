@@ -6,6 +6,7 @@ import CommonLoading from "../components/loader/CommonLoading";
 import CommunityRightbar from "../components/community/Rightbar";
 import CommunityMainSection from "../components/community/MainSection";
 import { getCommunityAction } from "../redux/actions/communityActions";
+import { getCommunityPosts } from '../redux/actions/postAction';
 
 const CommunityHome = () => {
   const navigate = useNavigate();
@@ -25,6 +26,12 @@ const CommunityHome = () => {
       navigate("/access-denied");
     }
   }, [isAuthorized, joinedCommunities, navigate, communityName]);
+
+  useEffect(() => {
+    if (communityName) {
+      dispatch(getCommunityPosts(communityName));
+    }
+  }, [communityName, dispatch]);
 
   if (!joinedCommunities) {
     return (
