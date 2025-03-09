@@ -43,7 +43,7 @@ There are three distinct user roles within the system:
 - Redux
 - Node.js
 - Express.js
-- MongoDB
+- postgre SQL
 - Tailwind CSS
 - JWT Authentication
 - Passport.js
@@ -62,6 +62,7 @@ Before running the application, make sure you have the following installed:
 
 - Node.js
 - PstgreSQL and PGAdmin
+- Docker
 
 ### Installation
 
