@@ -117,8 +117,4 @@ EMAIL_SERVICE=
 
 
 #### Demo
-https://youtu.be/Tmncayg7FeU
-
-## License
-
-This project is licensed under the [MIT License](https://github.com/nz-m/SocialEcho/blob/main/LICENSE).
+https://youtu.be/
